@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Support & Resistance Tracker</title>
+
+<style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 20px; }
+    h1 { text-align: center; }
+    table { border-collapse: collapse; width: 100%; background: white; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background: #222; color: white; }
+    input { width: 95%; padding: 6px; text-align: center; font-weight: bold; } /* COIN INPUT BOLD */
+    .price { font-weight: bold; } /* CURRENT PRICE BOLD */
+    .support-status, .resistance-status { font-weight: bold; transition: 0.3s; }
+    .status-near { background-color: #4CAF50; color: white; }
+    .status-approaching { background-color: #FFC107; color: black; }
+    .status-on { background-color: #F44336; color: white; }
+    .resistance-near { background-color: #2196F3; color: white; }
+    .resistance-approaching { background-color: #9C27B0; color: white; }
+    .resistance-on { background-color: #000000; color: white; }
+    .heading-row td { background-color: #ddd; font-weight: bold; text-align: left; padding-left: 10px; }
+    button { padding: 10px 15px; margin: 10px 5px; font-size: 14px; cursor: pointer; }
+</style>
+</head>
+
+<body>
+
+<h1>Crypto Support & Resistance Tracker</h1>
+
+<div style="text-align:center;">
+    <button onclick="addHeading()">Add Heading</button>
+    <button onclick="addRow()">Add Coin Row</button>
+    <button onclick="updatePrices()">Refresh Prices</button>
+</div>
+
+<table id="cryptoTable">
+    <thead>
+        <tr>
+            <th>Coin (CoinGecko ID)</th>
+            <th>Current Price (Auto)</th>
+            <th>Support Status</th>
+            <th>Resistance Status</th>
+            <th>Supports (comma separated)</th>
+            <th>Resistances (comma separated)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Table will be populated from GitHub JSON -->
+    </tbody>
+</table>
+
+<script>
+// --- Add Heading ---
+function addHeading() {
+    const headingName = prompt("Enter heading name:");
+    if (!headingName) return;
+
+    const table = document.getElementById("cryptoTable").getElementsByTagName('tbody')[0];
+    const headingRow = table.insertRow();
+    const cell = headingRow.insertCell(0);
+    cell.colSpan = 6; // span all columns
+    cell.innerText = headingName;
+    headingRow.className = "heading-row";
+}
+
+// --- Add Coin Row ---
+function addRow() {
+    const table = document.getElementById("cryptoTable").getElementsByTagName('tbody')[0];
+    const newRow = table.insertRow();
+    newRow.innerHTML = `
+        <td><input placeholder="bitcoin"></td>
+        <td class="price">-</td>
+        <td class="support-status">Waiting...</td>
+        <td class="resistance-status">Waiting...</td>
+        <td><input placeholder="65000,60000"></td>
+        <td><input placeholder="70000,75000"></td>
+    `;
+}
+
+// --- Import JSON from GitHub ---
+async function loadJSONFromGitHub() {
+    const url = "https://raw.githubusercontent.com/your-username/your-repo/main/crypto_levels.json"; 
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        importJSONData(data);
+    } catch (err) {
+        console.error("Failed to load JSON from GitHub:", err);
+        // fallback: add a default Bitcoin row if JSON fails
+        const table = document.getElementById("cryptoTable").getElementsByTagName('tbody')[0];
+        const newRow = table.insertRow();
+        newRow.innerHTML = `
+            <td><input value="bitcoin"></td>
+            <td class="price">-</td>
+            <td class="support-status">Waiting...</td>
+            <td class="resistance-status">Waiting...</td>
+            <td><input value="65000,60000,52000"></td>
+            <td><input value="70000,75000"></td>
+        `;
+        updatePrices();
+    }
+}
+
+// --- Import JSON into table ---
+function importJSONData(data) {
+    const table = document.getElementById("cryptoTable").getElementsByTagName('tbody')[0];
+    table.innerHTML = "";
+    data.forEach(item => {
+        if (item.type === "heading") {
+            const headingRow = table.insertRow();
+            const cell = headingRow.insertCell(0);
+            cell.colSpan = 6;
+            cell.innerText = item.name;
+            headingRow.className = "heading-row";
+        } else {
+            const newRow = table.insertRow();
+            newRow.innerHTML = `
+                <td><input value="${item.coin}"></td>
+                <td class="price">-</td>
+                <td class="support-status">Waiting...</td>
+                <td class="resistance-status">Waiting...</td>
+                <td><input value="${item.supports}"></td>
+                <td><input value="${item.resistances}"></td>
+            `;
+        }
+    });
+    updatePrices();
+}
+
+// --- CoinGecko API ---
+async function getAllPrices(coins) {
+    try {
+        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coins.join(',')}&vs_currencies=usd`);
+        if (!response.ok) throw new Error("API error");
+        return await response.json();
+    } catch (error) {
+        console.log("API error:", error);
+        return null;
+    }
+}
+
+function findNearestLevel(price, levels) {
+    if (!levels.length) return null;
+    let nearest = null;
+    levels.forEach(level => {
+        if (nearest === null || Math.abs(price - level) < Math.abs(price - nearest)) nearest = level;
+    });
+    return nearest;
+}
+
+function calculateSupportStatus(price, supports) {
+    const nearest = findNearestLevel(price, supports);
+    if (nearest === null) return { text: "No Supports", class: "" };
+    const diffPercent = Math.abs(price - nearest)/nearest*100;
+    if (price <= nearest) return { text: "ON / BELOW SUPPORT", class: "status-on" };
+    if (diffPercent <= 1) return { text: "NEAR SUPPORT", class: "status-near" };
+    if (diffPercent <= 3) return { text: "APPROACHING SUPPORT", class: "status-approaching" };
+    return { text: "FAR FROM SUPPORT", class: "" };
+}
+
+function calculateResistanceStatus(price, resistances) {
+    const nearest = findNearestLevel(price, resistances);
+    if (nearest === null) return { text: "No Resistances", class: "" };
+    const diffPercent = Math.abs(price - nearest)/nearest*100;
+    if (price >= nearest) return { text: "ON / ABOVE RESISTANCE", class: "resistance-on" };
+    if (diffPercent <= 1) return { text: "NEAR RESISTANCE", class: "resistance-near" };
+    if (diffPercent <= 3) return { text: "APPROACHING RESISTANCE", class: "resistance-approaching" };
+    return { text: "FAR FROM RESISTANCE", class: "" };
+}
+
+// --- Update Prices ---
+async function updatePrices() {
+    const table = document.getElementById("cryptoTable");
+    const rows = table.getElementsByTagName("tbody")[0].rows;
+    let coins = [];
+    for (let row of rows) {
+        if (row.classList.contains("heading-row")) continue;
+        const coin = row.cells[0].querySelector("input").value.trim().toLowerCase();
+        if (coin) coins.push(coin);
+    }
+    if (coins.length === 0) return;
+
+    let pricesData = await getAllPrices(coins);
+    if (!pricesData) {
+        await new Promise(r => setTimeout(r, 3000));
+        pricesData = await getAllPrices(coins);
+    }
+
+    for (let row of rows) {
+        if (row.classList.contains("heading-row")) continue;
+
+        const coin = row.cells[0].querySelector("input").value.trim().toLowerCase();
+        const supports = row.cells[4].querySelector("input").value.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+        const resistances = row.cells[5].querySelector("input").value.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+
+        const priceCell = row.cells[1];
+        const supportCell = row.cells[2];
+        const resistanceCell = row.cells[3];
+
+        if (!pricesData || !pricesData[coin]) {
+            priceCell.innerText = "API Error / Invalid Coin";
+            supportCell.innerText = "-";
+            resistanceCell.innerText = "-";
+            continue;
+        }
+
+        const price = pricesData[coin].usd;
+        priceCell.innerText = price.toLocaleString();
+
+        const supportStatus = calculateSupportStatus(price, supports);
+        supportCell.innerText = supportStatus.text;
+        supportCell.className = "support-status";
+        if (supportStatus.class) supportCell.classList.add(supportStatus.class);
+
+        const resistanceStatus = calculateResistanceStatus(price, resistances);
+        resistanceCell.innerText = resistanceStatus.text;
+        resistanceCell.className = "resistance-status";
+        if (resistanceStatus.class) resistanceCell.classList.add(resistanceStatus.class);
+    }
+}
+
+// Auto-refresh every 2 minutes
+setInterval(updatePrices, 120000);
+
+// --- Load JSON on page load ---
+window.addEventListener("load", loadJSONFromGitHub);
+</script>
+
+</body>
+</html>
