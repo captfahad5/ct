@@ -1,303 +1,208 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Crypto Support & Resistance Tracker (Editable Fixed)</title>
-
-<style>
-    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 20px; }
-    h1 { text-align: center; }
-    table { border-collapse: collapse; width: 100%; background: white; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
-    th { background: #222; color: white; }
-    .price { font-weight: bold; }
-    .support-status, .resistance-status { font-weight: bold; transition: 0.3s; }
-    /* Support Colors */
-    .status-on { background-color: #4CAF50; color: white; }         
-    .status-near { background-color: #FFC107; color: black; }      
-    .status-approaching { background-color: #9C27B0; color: white; } 
-    /* Resistance Colors */
-    .resistance-on { background-color: #F44336; color: white; }    
-    .resistance-near { background-color: #FFC107; color: black; }  
-    .resistance-approaching { background-color: #9C27B0; color: white; } 
-    .heading-row td { background-color: #ddd; font-weight: bold; text-align: left; padding-left: 10px; }
-    /* Legend Styles */
-    .legend { display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 12px; }
-    .legend-item { padding: 3px 6px; margin: 2px; font-weight: bold; border-radius: 3px; }
-    .legend-support-on { background-color: #4CAF50; color: white; }
-    .legend-support-near { background-color: #FFC107; color: black; }
-    .legend-support-approaching { background-color: #9C27B0; color: white; }
-    .legend-resistance-on { background-color: #F44336; color: white; }
-    .legend-resistance-near { background-color: #FFC107; color: black; }
-    .legend-resistance-approaching { background-color: #9C27B0; color: white; }
-    /* Banner Animation */
-    .animated-banner {
-        text-align: center;
-        font-weight: bold;
-        color: #1E90FF;
-        font-size: 18px;
-        margin: 10px auto 10px auto;
-        display: block;
-        animation: bounce 1.5s infinite;
-    }
-    @keyframes bounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-5px); }
-    }
-    /* Highlight specific support/resistance numbers */
-    .highlight-on { background-color: #4CAF50; color: white; font-weight: bold; padding: 2px 4px; border-radius: 3px; }
-    .highlight-near { background-color: #FFC107; color: black; font-weight: bold; padding: 2px 4px; border-radius: 3px; }
-    .highlight-approaching { background-color: #9C27B0; color: white; font-weight: bold; padding: 2px 4px; border-radius: 3px; }
-    .highlight-on.resistance { background-color: #F44336; } /* Red for resistance ON/ABOVE */
-    td[contenteditable="true"] { background: #eef; cursor: text; }
-</style>
-</head>
-
-<body>
-
-<h1>Crypto Support & Resistance Tracker (Editable Fixed)</h1>
-
-<div class="animated-banner">
-  Made By Capt Fahad ✈ | Powered By AI 💻
-</div>
-
-<div class="legend">
-    <div class="legend-item legend-support-on">ON / BELOW SUPPORT (Green)</div>
-    <div class="legend-item legend-support-near">NEAR SUPPORT ≤3% (Amber)</div>
-    <div class="legend-item legend-support-approaching">APPROACHING SUPPORT ≤6% (Purple)</div>
-    <div class="legend-item legend-resistance-on">ON / ABOVE RESISTANCE (Red)</div>
-    <div class="legend-item legend-resistance-near">NEAR RESISTANCE ≤3% (Amber)</div>
-    <div class="legend-item legend-resistance-approaching">APPROACHING RESISTANCE ≤6% (Purple)</div>
-</div>
-
-<div style="text-align:center;">
-    <button onclick="updatePrices()">Refresh Prices</button>
-    <div id="lastUpdated" style="margin-top:5px; font-size:12px;"></div>
-</div>
-
-<table id="cryptoTable">
-    <thead>
-        <tr>
-            <th>Coin (CoinGecko ID)</th>
-            <th>Current Price (Auto)</th>
-            <th>Support Status</th>
-            <th>Resistance Status</th>
-            <th>Supports</th>
-            <th>Resistances</th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- JSON data will populate here -->
-    </tbody>
-</table>
-
-<script>
-// ----------------- Fetch Prices -----------------
-async function getAllPrices(coins, retries = 3) {
-    let attempt = 0;
-    while (attempt < retries) {
-        try {
-            const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coins.join(',')}&vs_currencies=usd`);
-            if (!response.ok) throw new Error("API error");
-            return await response.json();
-        } catch (err) {
-            console.warn(`CoinGecko API fetch failed, attempt ${attempt + 1}:`, err);
-            attempt++;
-            await new Promise(r => setTimeout(r, 2000 * attempt)); 
-        }
-    }
-    return null;
-}
-
-// ----------------- Helper Functions -----------------
-function findNearestLevel(price, levels) {
-    if (!levels.length) return null;
-    let nearest = null;
-    levels.forEach(level => {
-        if (nearest === null || Math.abs(price - level) < Math.abs(price - nearest)) nearest = level;
-    });
-    return nearest;
-}
-
-function calculateSupportStatus(price, supports) {
-    const nearest = findNearestLevel(price, supports);
-    if (nearest === null) return { text: "No Supports", class: "" };
-    const diffPercent = Math.abs(price - nearest)/nearest*100;
-    if (price <= nearest) return { text: "ON / BELOW SUPPORT", class: "status-on" };
-    if (diffPercent <= 3) return { text: "NEAR SUPPORT", class: "status-near" };
-    if (diffPercent <= 6) return { text: "APPROACHING SUPPORT", class: "status-approaching" };
-    return { text: "FAR FROM SUPPORT", class: "" };
-}
-
-function calculateResistanceStatus(price, resistances) {
-    const nearest = findNearestLevel(price, resistances);
-    if (nearest === null) return { text: "No Resistances", class: "" };
-    const diffPercent = Math.abs(price - nearest)/nearest*100;
-    if (price >= nearest) return { text: "ON / ABOVE RESISTANCE", class: "resistance-on" };
-    if (diffPercent <= 3) return { text: "NEAR RESISTANCE", class: "resistance-near" };
-    if (diffPercent <= 6) return { text: "APPROACHING RESISTANCE", class: "resistance-approaching" };
-    return { text: "FAR FROM RESISTANCE", class: "" };
-}
-
-// ----------------- Highlight Nearest Level -----------------
-function highlightNearestLevel(price, spans, type) {
-    spans.forEach(span => span.classList.remove('highlight-on','highlight-near','highlight-approaching','resistance'));
-
-    let nearestSpan = null;
-    let nearestValue = null;
-    spans.forEach(span => {
-        const val = parseFloat(span.innerText);
-        if (nearestValue === null || Math.abs(price - val) < Math.abs(price - nearestValue)) {
-            nearestValue = val;
-            nearestSpan = span;
-        }
-    });
-    if (!nearestSpan) return;
-
-    const diffPercent = Math.abs(price - nearestValue)/nearestValue*100;
-    let highlightClass = '';
-
-    if (type === 'support') {
-        if (price <= nearestValue) highlightClass = 'highlight-on';
-        else if (diffPercent <= 3) highlightClass = 'highlight-near';
-        else if (diffPercent <= 6) highlightClass = 'highlight-approaching';
-    } else if (type === 'resistance') {
-        if (price >= nearestValue) { highlightClass = 'highlight-on'; nearestSpan.classList.add('resistance'); } 
-        else if (diffPercent <= 3) highlightClass = 'highlight-near';
-        else if (diffPercent <= 6) highlightClass = 'highlight-approaching';
-    }
-
-    if (highlightClass) nearestSpan.classList.add(highlightClass);
-}
-
-// ----------------- Parse Editable Numbers (Keep all) -----------------
-function parseEditableNumbersKeepAll(cell) {
-    const items = cell.innerText.split(',').map(s => s.trim());
-    const numbers = [];
-    const htmlParts = [];
-
-    items.forEach(item => {
-        const val = parseFloat(item);
-        if (!isNaN(val)) {
-            numbers.push(val);
-            htmlParts.push(`<span class="support-level">${val}</span>`);
-        } else if (item !== '') {
-            htmlParts.push(item);
-        }
-    });
-
-    cell.innerHTML = htmlParts.join(', ');
-    return numbers;
-}
-
-// ----------------- Populate Table -----------------
-async function importJSONFromGitHub() {
-    const url = "https://raw.githubusercontent.com/captfahad5/ct/main/crypto_levels.json";
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-        populateTableFromJSON(data);
-    } catch(err) {
-        console.warn("Failed to fetch JSON, loading fallback row.", err);
-        populateTableFromJSON([
-            { type: "heading", name: "Top Coins" },
-            { type: "coin", coin: "bitcoin", supports: "65000,60000,52000", resistances: "70000,75000" }
-        ]);
-    }
-}
-
-function populateTableFromJSON(data) {
-    const table = document.getElementById("cryptoTable").getElementsByTagName('tbody')[0];
-    table.innerHTML = "";
-    data.forEach(item => {
-        if (item.type === "heading") {
-            const headingRow = table.insertRow();
-            const cell = headingRow.insertCell(0);
-            cell.colSpan = 6;
-            cell.innerText = item.name;
-            headingRow.className = "heading-row";
-        } else if (item.type === "coin") {
-            const supportsHTML = item.supports.split(',').map(s => `<span class="support-level">${s.trim()}</span>`).join(', ');
-            const resistancesHTML = item.resistances.split(',').map(r => `<span class="resistance-level">${r.trim()}</span>`).join(', ');
-            const row = table.insertRow();
-            row.innerHTML = `
-                <td>${item.coin}</td>
-                <td class="price">-</td>
-                <td class="support-status">Waiting...</td>
-                <td class="resistance-status">Waiting...</td>
-                <td contenteditable="true" class="support-editable">${supportsHTML}</td>
-                <td contenteditable="true" class="resistance-editable">${resistancesHTML}</td>
-            `;
-        }
-    });
-}
-
-// ----------------- Update Prices -----------------
-async function updatePrices() {
-    const table = document.getElementById("cryptoTable").getElementsByTagName('tbody')[0];
-    const rows = table.rows;
-    const coins = [];
-    for (let row of rows) {
-        if (row.classList.contains("heading-row")) continue;
-        coins.push(row.cells[0].innerText.trim().toLowerCase());
-    }
-    if (!coins.length) return;
-
-    let pricesData = await getAllPrices(coins);
-    if (!pricesData) {
-        console.log("Retrying CoinGecko API in 3s...");
-        await new Promise(r => setTimeout(r, 3000));
-        pricesData = await getAllPrices(coins);
-    }
-
-    for (let row of rows) {
-        if (row.classList.contains("heading-row")) continue;
-
-        const coin = row.cells[0].innerText.trim().toLowerCase();
-        const supportCellEditable = row.cells[4];
-        const resistanceCellEditable = row.cells[5];
-
-        const supportCell = row.cells[2];
-        const resistanceCell = row.cells[3];
-        const priceCell = row.cells[1];
-
-        if (!pricesData || !pricesData[coin]) {
-            priceCell.innerText = "API Error / Invalid Coin";
-            supportCell.innerText = "-";
-            resistanceCell.innerText = "-";
-            continue;
-        }
-
-        const price = pricesData[coin].usd;
-        priceCell.innerText = price.toLocaleString();
-
-        const supportValues = parseEditableNumbersKeepAll(supportCellEditable);
-        const resistanceValues = parseEditableNumbersKeepAll(resistanceCellEditable);
-
-        const supportStatus = calculateSupportStatus(price, supportValues);
-        supportCell.innerText = supportStatus.text;
-        supportCell.className = "support-status";
-        if (supportStatus.class) supportCell.classList.add(supportStatus.class);
-
-        const resistanceStatus = calculateResistanceStatus(price, resistanceValues);
-        resistanceCell.innerText = resistanceStatus.text;
-        resistanceCell.className = "resistance-status";
-        if (resistanceStatus.class) resistanceCell.classList.add(resistanceStatus.class);
-
-        highlightNearestLevel(price, supportCellEditable.querySelectorAll('span'), 'support');
-        highlightNearestLevel(price, resistanceCellEditable.querySelectorAll('span'), 'resistance');
-    }
-
-    document.getElementById("lastUpdated").innerText = "Last Updated: " + new Date().toLocaleTimeString();
-}
-
-// ----------------- Init -----------------
-window.addEventListener("load", () => {
-    importJSONFromGitHub();
-    setInterval(updatePrices, 120000); 
-});
-</script>
-
-</body>
-</html>
+[
+  {
+    "type": "heading",
+    "name": "Fav"
+  },
+  {
+    "type": "coin",
+    "coin": "bitcoin",
+    "supports": "65000,60000,52000,69000",
+    "resistances": "70000,75000"
+  },
+  {
+    "type": "coin",
+    "coin": "ethereum",
+    "supports": "",
+    "resistances": "2200"
+  },
+  {
+    "type": "coin",
+    "coin": "solana",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "chainlink",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "litecoin",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "avalanche-2",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "pax-gold",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "heading",
+    "name": "Fav 2"
+  },
+  {
+    "type": "coin",
+    "coin": "Tron",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "hedera-hashgraph",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "Tao",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "Uniswap",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "polkadot",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "near",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "internet-computer",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "quant-network",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "cosmos",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "heading",
+    "name": "New"
+  },
+  {
+    "type": "coin",
+    "coin": "ethereum-classic",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "kaspa",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "render-token",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "aptos",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "pancakeswap-token",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "injective-protocol",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "elrond-erd-2",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "heading",
+    "name": "MAJOR"
+  },
+  {
+    "type": "coin",
+    "coin": "binance-peg-xrp",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "cardano",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "hyperliquid",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "stellar",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "sui",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "ONDO",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "coin",
+    "coin": "",
+    "supports": "",
+    "resistances": ""
+  },
+  {
+    "type": "heading",
+    "name": "rt"
+  }
+]
