@@ -15,7 +15,7 @@
     .support-status, .resistance-status { font-weight: bold; transition: 0.3s; }
     /* Support Colors */
     .status-on { background-color: #4CAF50; color: white; }          /* ON / BELOW SUPPORT → green */
-    .status-near { background-color: #FFFF00; color: black; }       /* NEAR SUPPORT ≤3% → yellow */
+    .status-near { background-color: #FFC107; color: black; }       /* NEAR SUPPORT ≤3% → Amber */
     .status-approaching { background-color: #9C27B0; color: white; }/* APPROACHING SUPPORT ≤6% → purple */
     /* Resistance Colors */
     .resistance-on { background-color: #F44336; color: white; }     /* ON / ABOVE RESISTANCE → red */
@@ -26,7 +26,7 @@
     .legend { display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 12px; }
     .legend-item { padding: 3px 6px; margin: 2px; font-weight: bold; border-radius: 3px; }
     .legend-support-on { background-color: #4CAF50; color: white; }
-    .legend-support-near { background-color: #FFFF00; color: black; }
+    .legend-support-near { background-color: #FFC107; color: black; }
     .legend-support-approaching { background-color: #9C27B0; color: white; }
     .legend-resistance-on { background-color: #F44336; color: white; }
     .legend-resistance-near { background-color: #FFC107; color: black; }
@@ -59,7 +59,7 @@
 <!-- Status Color Legend -->
 <div class="legend">
     <div class="legend-item legend-support-on">ON / BELOW SUPPORT (Green)</div>
-    <div class="legend-item legend-support-near">NEAR SUPPORT ≤3% (Yellow)</div>
+    <div class="legend-item legend-support-near">NEAR SUPPORT ≤3% (Amber)</div>
     <div class="legend-item legend-support-approaching">APPROACHING SUPPORT ≤6% (Purple)</div>
     <div class="legend-item legend-resistance-on">ON / ABOVE RESISTANCE (Red)</div>
     <div class="legend-item legend-resistance-near">NEAR RESISTANCE ≤3% (Amber)</div>
