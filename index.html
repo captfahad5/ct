@@ -3,53 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Crypto Support & Resistance Tracker</title>
+<title>Crypto Support & Resistance Tracker (Read-Only)</title>
 
 <style>
     body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 20px; }
     h1 { text-align: center; }
-    table { border-collapse: collapse; width: 100%; background: white; }
+    table { border-collapse: collapse; width: 100%; background: white; margin-top: 10px; }
     th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
     th { background: #222; color: white; }
     .price { font-weight: bold; }
     .support-status, .resistance-status { font-weight: bold; transition: 0.3s; }
-    .status-near { background-color: #4CAF50; color: white; }
-    .status-approaching { background-color: #FFC107; color: black; }
-    .status-on { background-color: #F44336; color: white; }
-    .resistance-near { background-color: #2196F3; color: white; }
-    .resistance-approaching { background-color: #9C27B0; color: white; }
-    .resistance-on { background-color: #000000; color: white; }
+    /* Support Colors */
+    .status-on { background-color: #4CAF50; color: white; }          /* ON / BELOW SUPPORT → green */
+    .status-near { background-color: #FFFF00; color: black; }       /* NEAR SUPPORT ≤3% → yellow */
+    .status-approaching { background-color: #9C27B0; color: white; }/* APPROACHING SUPPORT ≤6% → purple */
+    /* Resistance Colors */
+    .resistance-on { background-color: #F44336; color: white; }     /* ON / ABOVE RESISTANCE → red */
+    .resistance-near { background-color: #FFC107; color: black; }   /* NEAR RESISTANCE ≤3% → amber */
+    .resistance-approaching { background-color: #9C27B0; color: white; } /* APPROACHING RESISTANCE ≤6% → purple */
     .heading-row td { background-color: #ddd; font-weight: bold; text-align: left; padding-left: 10px; }
-    button { padding: 10px 15px; margin: 10px 5px; font-size: 14px; cursor: pointer; }
+    /* Legend Styles */
+    .legend { display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 12px; }
+    .legend-item { padding: 3px 6px; margin: 2px; font-weight: bold; border-radius: 3px; }
+    .legend-support-on { background-color: #4CAF50; color: white; }
+    .legend-support-near { background-color: #FFFF00; color: black; }
+    .legend-support-approaching { background-color: #9C27B0; color: white; }
+    .legend-resistance-on { background-color: #F44336; color: white; }
+    .legend-resistance-near { background-color: #FFC107; color: black; }
+    .legend-resistance-approaching { background-color: #9C27B0; color: white; }
+    /* Banner Animation */
+    .animated-banner {
+        text-align: center;
+        font-weight: bold;
+        color: #1E90FF;
+        font-size: 18px;
+        margin: 10px auto 10px auto;
+        display: block;
+        animation: bounce 1.5s infinite;
+    }
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
 </style>
 </head>
 
 <body>
 
-<h1>Crypto Support & Resistance Tracker</h1>
+<h1>Crypto Support & Resistance Tracker (Read-Only)</h1>
 
-<!-- Animated Banner -->
 <div class="animated-banner">
   Made By Capt Fahad ✈ | Powered By AI 💻
 </div>
 
-<style>
-/* Banner animation */
-.animated-banner {
-    text-align: center;        /* centers the text */
-    font-weight: bold;
-    color: #1E90FF;            /* Dodger Blue */
-    font-size: 18px;
-    margin: 10px auto 20px auto; /* top/bottom spacing, auto left/right centers block */
-    display: block;            /* ensure block element to center properly */
-    animation: bounce 1.5s infinite;
-}
-
-@keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
-}
-</style>
+<!-- Status Color Legend -->
+<div class="legend">
+    <div class="legend-item legend-support-on">ON / BELOW SUPPORT (Green)</div>
+    <div class="legend-item legend-support-near">NEAR SUPPORT ≤3% (Yellow)</div>
+    <div class="legend-item legend-support-approaching">APPROACHING SUPPORT ≤6% (Purple)</div>
+    <div class="legend-item legend-resistance-on">ON / ABOVE RESISTANCE (Red)</div>
+    <div class="legend-item legend-resistance-near">NEAR RESISTANCE ≤3% (Amber)</div>
+    <div class="legend-item legend-resistance-approaching">APPROACHING RESISTANCE ≤6% (Purple)</div>
+</div>
 
 <div style="text-align:center;">
     <button onclick="updatePrices()">Refresh Prices</button>
@@ -72,7 +87,7 @@
 </table>
 
 <script>
-// ----------------- Read-Only Table Logic -----------------
+// ----------------- Fetch Prices -----------------
 async function getAllPrices(coins) {
     try {
         const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coins.join(',')}&vs_currencies=usd`);
@@ -84,6 +99,7 @@ async function getAllPrices(coins) {
     }
 }
 
+// ----------------- Helper Functions -----------------
 function findNearestLevel(price, levels) {
     if (!levels.length) return null;
     let nearest = null;
@@ -98,8 +114,8 @@ function calculateSupportStatus(price, supports) {
     if (nearest === null) return { text: "No Supports", class: "" };
     const diffPercent = Math.abs(price - nearest)/nearest*100;
     if (price <= nearest) return { text: "ON / BELOW SUPPORT", class: "status-on" };
-    if (diffPercent <= 1) return { text: "NEAR SUPPORT", class: "status-near" };
-    if (diffPercent <= 3) return { text: "APPROACHING SUPPORT", class: "status-approaching" };
+    if (diffPercent <= 3) return { text: "NEAR SUPPORT", class: "status-near" };
+    if (diffPercent <= 6) return { text: "APPROACHING SUPPORT", class: "status-approaching" };
     return { text: "FAR FROM SUPPORT", class: "" };
 }
 
@@ -108,12 +124,12 @@ function calculateResistanceStatus(price, resistances) {
     if (nearest === null) return { text: "No Resistances", class: "" };
     const diffPercent = Math.abs(price - nearest)/nearest*100;
     if (price >= nearest) return { text: "ON / ABOVE RESISTANCE", class: "resistance-on" };
-    if (diffPercent <= 1) return { text: "NEAR RESISTANCE", class: "resistance-near" };
-    if (diffPercent <= 3) return { text: "APPROACHING RESISTANCE", class: "resistance-approaching" };
+    if (diffPercent <= 3) return { text: "NEAR RESISTANCE", class: "resistance-near" };
+    if (diffPercent <= 6) return { text: "APPROACHING RESISTANCE", class: "resistance-approaching" };
     return { text: "FAR FROM RESISTANCE", class: "" };
 }
 
-// ----------------- Populate Table from JSON -----------------
+// ----------------- Populate Table -----------------
 async function importJSONFromGitHub() {
     const url = "https://raw.githubusercontent.com/captfahad5/ct/main/crypto_levels.json";
     try {
@@ -122,7 +138,6 @@ async function importJSONFromGitHub() {
         populateTableFromJSON(data);
     } catch(err) {
         console.warn("Failed to fetch JSON, loading fallback row.", err);
-        // fallback: Bitcoin only
         populateTableFromJSON([
             { type: "heading", name: "Top Coins" },
             { type: "coin", coin: "bitcoin", supports: "65000,60000,52000", resistances: "70000,75000" }
