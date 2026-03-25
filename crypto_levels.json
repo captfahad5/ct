@@ -6,7 +6,7 @@
   {
     "type": "coin",
     "coin": "bitcoin",
-    "supports": "65000,60000,52000",
+    "supports": "65000,60000,52000,69000",
     "resistances": "70000,75000"
   },
   {
@@ -204,11 +204,5 @@
   {
     "type": "heading",
     "name": "rt"
-  },
-  {
-    "type": "coin",
-    "coin": "ok",
-    "supports": "",
-    "resistances": ""
   }
 ]
